@@ -16,13 +16,20 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    commandeditdialog.cpp \
+    htmldelegate.cpp \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    tsccommand.cpp
 
 HEADERS += \
-    mainwindow.h
+    commandeditdialog.h \
+    htmldelegate.h \
+    mainwindow.h \
+    tsccommand.h
 
 FORMS += \
+    commandeditdialog.ui \
     mainwindow.ui
 
 # Default rules for deployment.
