@@ -26,6 +26,7 @@ void MainWindow::newFile()
     fileLoaded = true;
     commands.clear();
     lastSaveLocation = nullptr;
+    unsavedMods = false;
     updateWidgetStates();
 }
 
@@ -183,6 +184,7 @@ bool MainWindow::loadFile(QFile *src, QString *fail)
     src->close();
     lastSaveLocation = src;
     fileLoaded = true;
+    unsavedMods = false;
     updateWidgetStates();
     *fail = QString("Successfully loaded %1 commands from \"%2\"").arg(commands.size()).arg(src->fileName());
     return true;
