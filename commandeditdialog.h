@@ -19,7 +19,7 @@ public:
     ~CommandEditDialog();
 
 signals:
-    void commandReady(TSCCommandPtr newCmd);
+    void commandReady(CommandEditDialog *ced, TSCCommandPtr newCmd);
 
 private slots:
     void on_btnCancel_clicked();

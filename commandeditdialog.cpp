@@ -68,9 +68,7 @@ void CommandEditDialog::on_btnOK_clicked()
     newCmd->clearsTextbox = ui->cbClearsTextbox->isChecked();
     newCmd->paramsAreSeparated = ui->cbParamsAreSeparated->isChecked();
 
-    emit commandReady(newCmd);
-
-    accept();
+    emit commandReady(this, newCmd);
 }
 
 void CommandEditDialog::on_cbParamType1_currentIndexChanged(int index)

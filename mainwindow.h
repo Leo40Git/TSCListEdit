@@ -4,8 +4,8 @@
 #include <QMainWindow>
 #include <QStandardItemModel>
 #include <QFile>
-
 #include "tsccommand.h"
+#include "commandeditdialog.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -50,7 +50,9 @@ private slots:
     void on_actionExit_triggered();
     void on_lvCmds_doubleClicked(const QModelIndex &index);
 
-    void commandReady(TSCCommandPtr newCmd);
+    void commandReady(CommandEditDialog *ced, TSCCommandPtr newCmd);
+
+    void on_btnSort_clicked();
 
 private:
     Ui::MainWindow *ui;

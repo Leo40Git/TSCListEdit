@@ -6,9 +6,7 @@
 #include <QFileDialog>
 #include <QTextStream>
 #include <QMetaEnum>
-#include <QDebug>
 #include "htmldelegate.h"
-#include "commandeditdialog.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -186,7 +184,7 @@ bool MainWindow::loadFile(QFile *src, QString *fail)
     lastSaveLocation = src;
     fileLoaded = true;
     updateWidgetStates();
-    *fail = QString("Successfully loaded %1 commands").arg(commands.size());
+    *fail = QString("Successfully loaded %1 commands from \"%2\"").arg(commands.size()).arg(src->fileName());
     return true;
 }
 
@@ -197,8 +195,6 @@ bool MainWindow::saveFile(QFile *dst, QString *fail)
         return false;
     }
     QTextStream ts(dst);
-    QList<TSCCommandPtr> commands = this->commands;
-    commands.removeAll(nullptr);
     // write header
     ts << "[BL_TSC]\t" << commands.size() << endl;
     // write commands
@@ -235,7 +231,7 @@ bool MainWindow::saveFile(QFile *dst, QString *fail)
         }
         ts << endl;
     }
-    *fail = QString("Successfully saved %1 commands").arg(commands.size());
+    *fail = QString("Successfully saved %1 commands to \"%2\"").arg(commands.size()).arg(dst->fileName());
     dst->close();
     unsavedMods = false;
     return true;
@@ -259,6 +255,7 @@ void MainWindow::updateWidgetStates()
     ui->btnAdd->setEnabled(fileLoaded);
     ui->btnRemove->setEnabled(fileLoaded);
     ui->btnEdit->setEnabled(fileLoaded);
+    ui->btnSort->setEnabled(fileLoaded);
 }
 
 void MainWindow::syncCommandsModel()
@@ -272,7 +269,6 @@ void MainWindow::syncCommandsModel()
         item->setData(i);
         lvCmdsModel->appendRow(item);
     }
-    lvCmdsModel->sort(0);
     ui->lvCmds->setModel(lvCmdsModel);
     ui->lvCmds->setItemDelegate(new HTMLDelegate);
 }
@@ -320,6 +316,7 @@ void MainWindow::on_actionOpen_triggered()
 
 void MainWindow::on_actionSave_triggered()
 {
+    on_btnSort_clicked();
     if (!lastSaveLocation) {
         on_actionSaveAs_triggered();
         return;
@@ -331,6 +328,7 @@ void MainWindow::on_actionSave_triggered()
 
 void MainWindow::on_actionSaveAs_triggered()
 {
+    on_btnSort_clicked();
     QString filename = QFileDialog::getSaveFileName(this, "Save TSC list", "", "TSC list files (*.txt)");
     if (filename.isNull())
         return;
@@ -344,55 +342,39 @@ void MainWindow::on_actionSaveAs_triggered()
 
 void MainWindow::on_btnAdd_clicked()
 {
-    qDebug() << 1;
     int i = commands.size();
-    qDebug() << 2;
     TSCCommandPtr newCmd = TSCCommandPtr(new TSCCommand);
-    qDebug() << 3;
     newCmd->code = "<NEW";
-    qDebug() << 4;
     newCmd->name = "NEW command";
-    qDebug() << 5;
     commands += newCmd;
-    qDebug() << 6;
     QStandardItem *item = new QStandardItem;
-    qDebug() << 7;
     item->setText(QString("<code>%1</code> - %2").arg(newCmd->code.toHtmlEscaped()).arg(newCmd->name.toHtmlEscaped()));
-    qDebug() << 8;
     item->setToolTip(newCmd->description);
-    qDebug() << 9;
     item->setData(i);
-    qDebug() << 10;
     lvCmdsModel->appendRow(item);
-    qDebug() << 11;
     QModelIndex ni = lvCmdsModel->indexFromItem(item);
-    qDebug() << 12;
     ui->lvCmds->selectionModel()->select(ni, QItemSelectionModel::ClearAndSelect);
-    qDebug() << 13;
     on_btnEdit_clicked();
-    qDebug() << 14;
-    lvCmdsModel->sort(0);
 }
 
 void MainWindow::on_btnRemove_clicked()
 {
     QModelIndex di = ui->lvCmds->selectionModel()->selectedIndexes()[0];
     int i = di.data(Qt::UserRole + 1).toInt();
-    commands[i] = nullptr;
-    lvCmdsModel->removeRow(di.row());
+    TSCCommandPtr cmd = commands[i];
+    if (QMessageBox::question(this, "Delete command?", QString("Are you sure you want to delete command %1?").arg(cmd->code)) != QMessageBox::Yes)
+        return;
+    commands.removeAt(i);
+    syncCommandsModel();
+    ui->lvCmds->selectionModel()->select(di, QItemSelectionModel::ClearAndSelect);
 }
 
 void MainWindow::on_btnEdit_clicked()
 {
-    qDebug() << 1;
     int i = ui->lvCmds->selectionModel()->selectedIndexes()[0].data(Qt::UserRole + 1).toInt();
-    qDebug() << 2;
     CommandEditDialog *ced = new CommandEditDialog(commands[i], this);
-    qDebug() << 3;
     connect(ced, &CommandEditDialog::commandReady, this, &MainWindow::commandReady);
-    qDebug() << 4;
-    if (ced->exec() == QDialog::Accepted)
-        lvCmdsModel->sort(0);
+    ced->exec();
 }
 
 void MainWindow::on_actionUnload_triggered()
@@ -413,13 +395,33 @@ void MainWindow::on_lvCmds_doubleClicked(const QModelIndex &index)
     on_btnEdit_clicked();
 }
 
-void MainWindow::commandReady(TSCCommandPtr newCmd)
+void MainWindow::commandReady(CommandEditDialog *ced, TSCCommandPtr newCmd)
 {
-    int i = ui->lvCmds->selectionModel()->selectedIndexes()[0].data(Qt::UserRole + 1).toInt();
-    commands[i] = newCmd;
-    QStandardItem *item = lvCmdsModel->item(i);
+    int si = ui->lvCmds->selectionModel()->selectedIndexes()[0].data(Qt::UserRole + 1).toInt();
+    for (int i = 0; i < commands.size(); i++) {
+        if (i == si)
+            continue;
+        TSCCommandPtr cmd = commands[i];
+        if (cmd->code.compare(newCmd->code) == 0) {
+            QMessageBox::critical(this, "Conflicting code", QString("Code %1 is already in use.").arg(cmd->code));
+            return;
+        }
+    }
+    ced->accept();
+    commands[si] = newCmd;
+    QStandardItem *item = lvCmdsModel->item(si);
     item->setText(QString("<code>%1</code> - %2").arg(newCmd->code.toHtmlEscaped()).arg(newCmd->name.toHtmlEscaped()));
     item->setToolTip(newCmd->description);
-    lvCmdsModel->sort(0);
     unsavedMods = true;
+}
+
+bool cmpTSCCmdPtrs(const TSCCommandPtr& a, const TSCCommandPtr& b) {
+    return a->code < b->code;
+}
+
+void MainWindow::on_btnSort_clicked()
+{
+    commands.removeAll(nullptr);
+    std::sort(commands.begin(), commands.end(), cmpTSCCmdPtrs);
+    syncCommandsModel();
 }

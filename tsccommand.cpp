@@ -27,6 +27,9 @@ const QList<QPair<TSCCommand::ParameterType, QString>> TSCCommand::paramTypeName
 
 TSCCommand::TSCCommand(QObject *parent) : QObject(parent)
 {
+    endsEvent = false;
+    clearsTextbox = false;
+    paramsAreSeparated = true;
     params.clear();
     for (int i = 0; i < 4; i++)
         params += QPair<ParameterType, uint>(None, 4);
